@@ -6,6 +6,7 @@ services:
       args:
         USER_ID: ${UID:-1000}
         GROUP_ID: ${GID:-1000}
+    image: ghcr.io/jshzl13/laravel-fluffy-robot:develop
     container_name: laravel_app
     restart: unless-stopped
     ports:
