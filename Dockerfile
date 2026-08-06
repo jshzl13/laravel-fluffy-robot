@@ -54,7 +54,7 @@ WORKDIR /var/www/html
 COPY ./src /var/www/html
 
 # Make sure script is executable
-COPY ./docker/sh/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY ./docker/scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 80
