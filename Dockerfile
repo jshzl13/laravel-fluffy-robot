@@ -52,6 +52,15 @@ COPY ./src/composer.json ./src/composer.lock ./
 RUN --mount=type=cache,target=/root/.composer/cache \
     composer install --no-interaction --no-plugins --no-scripts --prefer-dist --no-dev --optimize-autoloader
 
+# --- FRONTEND ASSETS STAGE ---
+FROM node:22-alpine AS frontend
+WORKDIR /app
+COPY ./src/package.json ./src/package-lock.json ./
+RUN npm ci
+COPY ./src/resources ./resources
+COPY ./src/vite.config.js ./
+RUN npm run build
+
 # --- FINAL RUNTIME STAGE ---
 FROM base AS runner
 WORKDIR /var/www/html
@@ -66,6 +75,7 @@ COPY ./src /var/www/html
 
 # 5. OPTIMIZATION: Copy pre-cached vendor folder from parallel build stage
 COPY --from=vendor /tmp/build/vendor /var/www/html/vendor
+COPY --from=frontend /app/public/build /var/www/html/public/build
 
 # Optimize Laravel application configuration inside the build
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

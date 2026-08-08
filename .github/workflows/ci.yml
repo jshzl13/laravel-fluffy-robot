@@ -2,8 +2,15 @@ name: Laravel CI
 
 on:
   push:
-    branches:
-      - '**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   tests:
@@ -17,7 +24,7 @@ jobs:
           MYSQL_DATABASE: laravel_testing
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=10
 
     defaults:
       run:
@@ -49,7 +56,7 @@ jobs:
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer Dependencies
-        run: composer install --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist
 
       - name: Generate Application Key
         run: php artisan key:generate --env=testing
@@ -65,4 +72,41 @@ jobs:
           DB_DATABASE: laravel_testing
           DB_USERNAME: root
           DB_PASSWORD: ""
-        run: ./vendor/bin/phpunit
+        run: |
+          php artisan migrate:fresh --env=testing --force
+          php artisan test
+
+      - name: Audit Composer dependencies
+        run: composer audit --locked
+
+      - name: Upload Laravel logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: laravel-logs
+          path: src/storage/logs
+          if-no-files-found: ignore
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./src
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
