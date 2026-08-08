@@ -3,14 +3,13 @@ name: Laravel CI
 on:
   push:
     branches:
-      - '**' # Triggers on a push to ANY branch
+      - '**'
 
 jobs:
   tests:
     runs-on: ubuntu-latest
 
     services:
-      # If your PHPUnit tests rely on a database, spin it up instantly here
       mysql:
         image: mysql:8.0
         env:
@@ -34,7 +33,6 @@ jobs:
       - name: Copy .env file
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
 
-      # CI OPTIMIZATION: Cache Composer packages on GitHub's servers to make builds fast
       - name: Get Composer Cache Directory
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
@@ -52,11 +50,9 @@ jobs:
       - name: Generate Application Key
         run: php artisan key:generate --env=testing
 
-      # 1. RUN LARAVEL PINT TEST
       - name: Run Laravel Pint (Code Style Check)
         run: ./vendor/bin/pint --test
 
-      # 2. RUN PHPUNIT TEST SUITE
       - name: Run PHPUnit Tests
         env:
           DB_CONNECTION: mysql
