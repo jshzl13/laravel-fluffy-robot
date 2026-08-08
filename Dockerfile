@@ -1,10 +1,13 @@
-FROM ubuntu:24.04
+# syntax=docker/dockerfile:1
+FROM ubuntu:24.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
-# Install system dependencies, Apache, and Ondřej Surý's PHP PPA
-RUN apt-get update && apt-get install -y \
+# 1. OPTIMIZATION: Use BuildKit apt cache mounts to speed up system dependency installations
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     unzip \
@@ -12,11 +15,13 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     apache2 \
     libapache2-mod-php8.3 \
-    && add-apt-repository ppa:ondrej/php -y \
-    && apt-get update
+    && add-apt-repository ppa:ondrej/php -y
 
-# Install PHP 8.3 and standard Laravel extensions
-RUN apt-get install -y \
+# 2. OPTIMIZATION: Cache PHP installation packages. 
+# Keeping this clean means no residual apt logs are baked into the final layer image.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     php8.3-cli \
     php8.3-common \
     php8.3-mysql \
@@ -30,30 +35,46 @@ RUN apt-get install -y \
     php8.3-opcache \
     php8.3-redis \
     php8.3-xml \
-    php8.3-zip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    php8.3-zip
 
-# Install Composer globally
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Enable Apache mod_rewrite for Laravel routing
+# Enable Apache modules
 RUN a2enmod rewrite ssl
 
-# Copy custom Apache virtual host configuration
-COPY ./docker/apache/default.conf /etc/apache2/sites-available/000-default.conf
-# Copy custom php.ini configuration for Apache
-COPY ./docker/php/php.ini /etc/php/8.3/apache2/conf.d/99-custom.ini
-# Copy custom php.ini for CLI (so Artisan commands also use these settings)
-COPY ./docker/php/php.ini /etc/php/8.3/cli/conf.d/99-custom.ini
+# --- COMPOSER DEPENDENCIES STAGE ---
+# 3. OPTIMIZATION: Isolate composer vendor building to run concurrently 
+FROM base AS vendor
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set working directory to Apache root
+WORKDIR /tmp/build
+COPY ./src/composer.json ./src/composer.lock ./
+
+# 4. OPTIMIZATION: Persistent Composer cache across builds
+RUN --mount=type=cache,target=/root/.composer/cache \
+    composer install --no-interaction --no-plugins --no-scripts --prefer-dist --no-dev --optimize-autoloader
+
+# --- FINAL RUNTIME STAGE ---
+FROM base AS runner
 WORKDIR /var/www/html
 
-# Copy application files from host ./src to container
+# Copy configurations
+COPY ./docker/apache/default.conf /etc/apache2/sites-available/000-default.conf
+COPY ./docker/php/php.ini /etc/php/8.3/apache2/conf.d/99-custom.ini
+COPY ./docker/php/php.ini /etc/php/8.3/cli/conf.d/99-custom.ini
+
+# Copy source code code directly
 COPY ./src /var/www/html
 
-# Make sure script is executable
+# 5. OPTIMIZATION: Copy pre-cached vendor folder from parallel build stage
+COPY --from=vendor /tmp/build/vendor /var/www/html/vendor
+
+# Optimize Laravel application configuration inside the build
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+RUN composer dump-autoload --no-dev --classmap-authoritative
+
+# Ensure proper storage permissions for Apache
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Setup entrypoint script
 COPY ./docker/scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

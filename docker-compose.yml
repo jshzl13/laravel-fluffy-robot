@@ -6,7 +6,7 @@ services:
       args:
         USER_ID: ${UID:-1000}
         GROUP_ID: ${GID:-1000}
-    image: ghcr.io/jshzl13/laravel-fluffy-robot:develop
+    image: ghcr.io/jshzl13/laravel-fluffy-robot:main
     container_name: laravel_app
     restart: unless-stopped
     ports:
@@ -19,6 +19,8 @@ services:
     depends_on:
       - db
       - redis
+    networks:
+      - laravel_network
 
   db:
     image: mysql:8.0
@@ -37,6 +39,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - laravel_network
 
   redis:
     image: redis:alpine
@@ -49,6 +53,12 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    networks:
+      - laravel_network
 
 volumes:
   db_data:
+
+networks:
+  laravel_network:
+    driver: bridge
