@@ -19,6 +19,11 @@ jobs:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
+    # Tells GitHub Actions to run ALL subsequent step commands inside the ./src directory
+    defaults:
+      run:
+        working-directory: ./src
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,6 +38,7 @@ jobs:
       - name: Copy .env file
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
 
+      # Point the cache analyzer to the lock file inside the src directory
       - name: Get Composer Cache Directory
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
@@ -41,7 +47,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('src/**/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
       - name: Install Composer Dependencies
