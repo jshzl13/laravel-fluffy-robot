@@ -1,5 +1,10 @@
 # syntax=docker/dockerfile:1
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
 FROM ubuntu:24.04 AS base
+ARG USER_ID=1000
+ARG GROUP_ID=1000
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
@@ -15,6 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     software-properties-common \
     apache2 \
     libapache2-mod-php8.3 \
+    passwd \
     && add-apt-repository ppa:ondrej/php -y
 
 # 2. OPTIMIZATION: Cache PHP installation packages. 
@@ -40,6 +46,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Enable Apache modules
 RUN a2enmod rewrite ssl
 
+# Create a development user matching the host UID/GID when provided
+RUN groupadd -g "${GROUP_ID}" appuser 2>/dev/null || true && \
+    if ! id appuser >/dev/null 2>&1; then \
+      useradd -o -m -u "${USER_ID}" -g "${GROUP_ID}" -s /bin/bash appuser; \
+    fi
+
 # --- COMPOSER DEPENDENCIES STAGE ---
 # 3. OPTIMIZATION: Isolate composer vendor building to run concurrently 
 FROM base AS vendor
@@ -55,14 +67,21 @@ RUN --mount=type=cache,target=/root/.composer/cache \
 # --- FRONTEND ASSETS STAGE ---
 FROM node:22-alpine AS frontend
 WORKDIR /app
-COPY ./src/package.json ./src/package-lock.json ./
-RUN npm ci
+COPY ./src/package.json ./
+RUN corepack enable && corepack pnpm install
 COPY ./src/resources ./resources
 COPY ./src/vite.config.js ./
-RUN npm run build
+RUN corepack pnpm run build
 
 # --- FINAL RUNTIME STAGE ---
 FROM base AS runner
+
+# Install Node.js and enable pnpm for runtime package management
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    corepack enable
+
 WORKDIR /var/www/html
 
 # Copy configurations
