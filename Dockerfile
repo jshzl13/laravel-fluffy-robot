@@ -44,7 +44,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     php8.3-zip
 
 # Enable Apache modules
-RUN a2enmod rewrite ssl
+RUN a2enmod rewrite ssl && \
+    echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf && \
+    a2enconf servername
 
 # Create a development user matching the host UID/GID when provided
 RUN groupadd -g "${GROUP_ID}" appuser 2>/dev/null || true && \
