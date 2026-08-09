@@ -112,5 +112,8 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit frontend dependencies
+        run: pnpm audit --audit-level high
+
       - name: Build frontend assets
         run: pnpm run build
