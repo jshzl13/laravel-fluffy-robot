@@ -97,30 +97,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 11.20.0
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: src/package.json
+          cache-dependency-path: src/pnpm-lock.yaml
 
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      - name: Activate pnpm and verify installation
-        run: |
-          corepack enable
-          corepack prepare pnpm@8 --activate
-          if ! command -v pnpm >/dev/null 2>&1; then
-            npm install -g pnpm@8
-          fi
-          pnpm --version
-          which pnpm
+      - name: Verify pnpm
+        run: pnpm --version
 
       - name: Install frontend dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build frontend assets
         run: pnpm run build
