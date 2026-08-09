@@ -63,7 +63,7 @@ COPY ./src/composer.json ./src/composer.lock ./
 # 4. OPTIMIZATION: Persistent Composer cache across builds
 RUN --mount=type=cache,target=/root/.composer/cache \
     composer install --no-interaction --no-plugins --no-scripts --prefer-dist --no-dev --optimize-autoloader && \
-    composer dump-autoload --no-dev --classmap-authoritative
+    composer dump-autoload --no-dev --classmap-authoritative --no-scripts
 
 # --- FRONTEND ASSETS STAGE ---
 FROM node:22-alpine AS frontend
