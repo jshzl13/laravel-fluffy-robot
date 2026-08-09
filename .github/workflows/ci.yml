@@ -113,6 +113,9 @@ jobs:
         run: |
           corepack enable
           corepack prepare pnpm@8 --activate
+          if ! command -v pnpm >/dev/null 2>&1; then
+            npm install -g pnpm@8
+          fi
           pnpm --version
           which pnpm
 
