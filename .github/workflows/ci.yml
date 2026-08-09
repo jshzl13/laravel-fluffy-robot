@@ -109,6 +109,13 @@ jobs:
         with:
           version: 8
 
+      - name: Activate pnpm and verify installation
+        run: |
+          corepack enable
+          corepack prepare pnpm@8 --activate
+          pnpm --version
+          which pnpm
+
       - name: Install frontend dependencies
         run: pnpm install
 
