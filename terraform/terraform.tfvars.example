@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars and replace the password before applying.
+mysql_root_password = "change-me-before-applying"
+app_key             = "base64:replace-with-output-of-php-artisan-key:generate---show"
+
+# For a remote daemon, uncomment and set a Docker-compatible endpoint.
+# docker_host = "ssh://deploy@example.com"
+
+# Pin this to a release tag or digest for production deployments.
+# app_image = "ghcr.io/jshzl13/laravel-fluffy-robot:main"
