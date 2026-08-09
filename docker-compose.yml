@@ -12,10 +12,11 @@ services:
     ports:
       - "8000:80"
     volumes:
-      # Maps local ./src folder to /src inside the container
+      # Maps local ./src folder to /var/www/html inside the container
       - ./src:/var/www/html
-    # Override CMD to keep container alive while /src is empty
-    #command: tail -f /dev/null
+      # Persist vendor and node_modules across container recreation
+      - vendor_data:/var/www/html/vendor
+      - node_modules_data:/var/www/html/node_modules
     depends_on:
       - db
       - redis
@@ -58,6 +59,8 @@ services:
 
 volumes:
   db_data:
+  vendor_data:
+  node_modules_data:
 
 networks:
   laravel_network:
