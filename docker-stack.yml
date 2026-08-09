@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  app:
+    image: ghcr.io/jshzl13/laravel-fluffy-robot:main
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: ingress
+    networks:
+      - laravel_network
+    volumes:
+      - laravel_storage:/var/www/html/storage
+      - laravel_bootstrap_cache:/var/www/html/bootstrap/cache
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: laravel
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - laravel_network
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  redis:
+    image: redis:alpine
+    networks:
+      - laravel_network
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+networks:
+  laravel_network:
+    driver: overlay
+
+volumes:
+  db_data:
+  laravel_storage:
+  laravel_bootstrap_cache:

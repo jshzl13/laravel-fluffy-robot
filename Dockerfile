@@ -62,7 +62,8 @@ COPY ./src/composer.json ./src/composer.lock ./
 
 # 4. OPTIMIZATION: Persistent Composer cache across builds
 RUN --mount=type=cache,target=/root/.composer/cache \
-    composer install --no-interaction --no-plugins --no-scripts --prefer-dist --no-dev --optimize-autoloader
+    composer install --no-interaction --no-plugins --no-scripts --prefer-dist --no-dev --optimize-autoloader && \
+    composer dump-autoload --no-dev --classmap-authoritative
 
 # --- FRONTEND ASSETS STAGE ---
 FROM node:22-alpine AS frontend
@@ -75,12 +76,6 @@ RUN corepack pnpm run build
 
 # --- FINAL RUNTIME STAGE ---
 FROM base AS runner
-
-# Install Node.js and enable pnpm for runtime package management
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-    apt-get install -y --no-install-recommends nodejs && \
-    corepack enable
 
 WORKDIR /var/www/html
 
@@ -96,18 +91,19 @@ COPY ./src /var/www/html
 COPY --from=vendor /tmp/build/vendor /var/www/html/vendor
 COPY --from=frontend /app/public/build /var/www/html/public/build
 
-# Optimize Laravel application configuration inside the build
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-RUN composer dump-autoload --no-dev --classmap-authoritative
-
-# Ensure proper storage permissions for Apache
+# Ensure Laravel cache files are owned by the runtime user
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Setup entrypoint script
 COPY ./docker/scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Run as non-root for better security
+USER www-data
+
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD curl -f http://localhost/ || exit 1
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["apachectl", "-D", "FOREGROUND"]
