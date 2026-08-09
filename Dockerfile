@@ -92,14 +92,13 @@ COPY --from=vendor /tmp/build/vendor /var/www/html/vendor
 COPY --from=frontend /app/public/build /var/www/html/public/build
 
 # Ensure Laravel cache files are owned by the runtime user
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache && \
+    mkdir -p /var/log/apache2 && \
+    chown -R www-data:www-data /var/log/apache2
 
 # Setup entrypoint script
 COPY ./docker/scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# Run as non-root for better security
-USER www-data
 
 EXPOSE 80
 
